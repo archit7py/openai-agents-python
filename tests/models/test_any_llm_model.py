@@ -860,6 +860,49 @@ async def test_any_llm_responses_path_is_used_when_supported(monkeypatch) -> Non
     assert kwargs["extra_headers"]["User-Agent"] == f"Agents/Python {__version__}"
     assert response.response_id == "resp_123"
     assert response.output[0].content[0].text == "Hello"
+    
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_chat_handles_none_usage_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = _chat_completion("Hello")
+
+    chat.usage = CompletionUsage.model_construct(
+        completion_tokens=None,
+        prompt_tokens=None,
+        total_tokens=None,
+    )
+
+    provider = FakeAnyLLMProvider(
+        supports_responses=False,
+        chat_response=chat,
+    )
+
+    module, _create_calls = _import_any_llm_module(monkeypatch, provider)
+
+    model = module.AnyLLMModel(
+        model="openrouter/openai/gpt-5.4-mini",
+        api="chat_completions",
+    )
+
+    resp: ModelResponse = await model.get_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert resp.usage.input_tokens == 0
+    assert resp.usage.output_tokens == 0
+    assert resp.usage.total_tokens == 0
 
 
 @pytest.mark.allow_call_model_methods

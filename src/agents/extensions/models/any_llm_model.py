@@ -631,11 +631,11 @@ class AnyLLMModel(Model):
             usage = (
                 Usage(
                     requests=1,
-                    input_tokens=response.usage.prompt_tokens,
-                    output_tokens=response.usage.completion_tokens,
-                    total_tokens=response.usage.total_tokens,
-                    input_tokens_details=response.usage.prompt_tokens_details,  # type: ignore[arg-type]
-                    output_tokens_details=response.usage.completion_tokens_details,  # type: ignore[arg-type]
+                    input_tokens=response.usage.prompt_tokens or 0,
+                    output_tokens=response.usage.completion_tokens or 0,
+                    total_tokens=response.usage.total_tokens or 0,
+                    input_tokens_details=response.usage.prompt_tokens_details,
+                    output_tokens_details=response.usage.completion_tokens_details,
                 )
                 if response.usage is not None
                 # The request completed, so it counts even when the provider omits usage.

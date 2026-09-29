@@ -189,6 +189,7 @@ async def test_get_response_with_text_message(monkeypatch) -> None:
         conversation_id=None,
         prompt=None,
     )
+
     # Should have produced exactly one output message with one text part
     assert isinstance(resp, ModelResponse)
     assert len(resp.output) == 1
@@ -197,6 +198,7 @@ async def test_get_response_with_text_message(monkeypatch) -> None:
     assert len(msg_item.content) == 1
     assert isinstance(msg_item.content[0], ResponseOutputText)
     assert msg_item.content[0].text == "Hello"
+
     # Usage should be preserved from underlying ChatCompletion.usage
     assert resp.usage.input_tokens == 7
     assert resp.usage.output_tokens == 5
@@ -206,6 +208,53 @@ async def test_get_response_with_text_message(monkeypatch) -> None:
     assert resp.usage.output_tokens_details.reasoning_tokens == 0
     assert resp.response_id is None
     assert resp.raw_usage is None
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_get_response_handles_none_usage_tokens(monkeypatch) -> None:
+    msg = ChatCompletionMessage(role="assistant", content="Hello")
+    choice = Choice(index=0, finish_reason="stop", message=msg)
+    chat = ChatCompletion(
+        id="resp-id",
+        created=0,
+        model="fake",
+        object="chat.completion",
+        choices=[choice],
+        usage=CompletionUsage.model_construct(
+            completion_tokens=None,
+            prompt_tokens=None,
+            total_tokens=None,
+        ),
+    )
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(
+        OpenAIChatCompletionsModel,
+        "_fetch_response",
+        patched_fetch_response,
+    )
+
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    resp: ModelResponse = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert resp.usage.input_tokens == 0
+    assert resp.usage.output_tokens == 0
+    assert resp.usage.total_tokens == 0
 
 
 @pytest.mark.allow_call_model_methods
